@@ -58,32 +58,22 @@ const login = async (req, res) => {
 
 const protect = async (req, res, next) => {
   try {
-    let token;
-    if (req.headers.authorization) {
-      token = req.headers.authorization.split(" ")[1];
-    }
+    const token = req.cookies.jwt;
     if (!token) {
-      return res.status(401).send("You are not logged in! Please log in");
+      return res.status(500).send("You are not logged in! Please log in");
     }
-    const decodedToken = await verifyToken(token);
-    req.auth = decodedToken;
+    console.log("TOKEN:", token);
+    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(401).send("User doesn't exist anymore");
+    }
+    req.auth = user;
     next();
   } catch (err) {
     console.log(err);
-    return res.status(500).send("ISE");
+    return res.status(500).send("Internal Server Error");
   }
-};
-
-const verifyToken = (token) => {
-  return new Promise((resolve, reject) => {
-    jwt.verify(token, process.env.JWT_SECRET, (err, decodedToken) => {
-      if (err) {
-        reject(new Error("Token verification failed"));
-      } else {
-        resolve(decodedToken);
-      }
-    });
-  });
 };
 
 module.exports = {
